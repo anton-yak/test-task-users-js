@@ -1,0 +1,36 @@
+services:
+  api:
+    build: .
+    depends_on:
+      - db
+    restart: always
+    ports:
+      - 8080:8080
+    environment:
+      - PGUSER=${DB_USER}
+      - PGHOST=${DB_HOST}
+      - PGDATABASE=${DB_NAME}
+      - PGPORT=${DB_PORT}
+      - PGPASSWORD=${DB_PASSWORD}
+      - USER_HISTORY_URL=${USER_HISTORY_URL}
+    networks:
+      - users-local-network
+      - shared-network
+
+  db:
+    image: postgres:16
+    restart: always
+    ports:
+      - 5432:5432
+    volumes:
+      - ./db_init:/docker-entrypoint-initdb.d
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    networks:
+      - users-local-network
+
+networks:
+  shared-network:
+    name: "shared_network"
+  users-local-network:
+    name: "users_local_network"
