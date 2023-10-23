@@ -45,25 +45,56 @@ export class UserModel {
     }
 }
 
-  async update({id, email, password, fullName}) {
+  async update(id, fields) {
     try {
+      await this.db.query('BEGIN')
+      const selectRes = await this.db.query(
+        `SELECT email, password, full_name AS "fullName"
+        FROM users
+        WHERE id = $1
+        FOR UPDATE`, [id])
+      if (selectRes.rowCount == 0) {
+        return {
+          changedFields: [],
+          rowCount: 0,
+        }
+      }
+      let changedFields = []
+      let updatedValues = []
+      for (const field of ['email', 'password', 'fullName']) {
+        if (fields[field] != undefined
+          && fields[field] != ""
+          && fields[field] != selectRes.rows[0][field]
+        ) {
+          changedFields.push({
+            fieldName: field,
+            oldValue: selectRes.rows[0][field],
+            newValue: fields[field],
+          })
+          updatedValues.push(fields[field])
+        } else {
+          updatedValues.push(selectRes.rows[0][field])
+        }
+      }
+
       const updateRes = await this.db.query(
         `UPDATE users SET
             email = $1,
             password = $2,
             full_name = $3
         WHERE id = $4`,
-        [
-          email,
-          password,
-          fullName,
-          id
-        ]
+        [...updatedValues, id]
       )
-      return updateRes.rowCount
+      await this.db.query('COMMIT')
+      return {
+        changedFields: changedFields,
+        rowCount: updateRes.rowCount,
+      }
     } catch(error) {
       console.error(error)
       throw new Error(`failed to update user: ${error}`)
+    } finally {
+      await this.db.query('ROLLBACK')
     }
   }
 
